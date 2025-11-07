@@ -1,4 +1,7 @@
+require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
+const express = require('express');
+const cors = require('cors');
 
 const client = new Client({
   intents: [
@@ -9,8 +12,150 @@ const client = new Client({
   ],
 });
 
+const fs = require('fs');
+const path = require('path');
+
 const userSessions = new Map();
 const sortedUsers = new Map();
+const SORTED_USERS_FILE = path.join(__dirname, 'sorted_users.json');
+
+// Logging system for dashboard
+const dashboardLogs = [];
+const MAX_LOGS = 100;
+
+function addDashboardLog(message, type = 'info') {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    message,
+    type
+  };
+  dashboardLogs.unshift(logEntry);
+  if (dashboardLogs.length > MAX_LOGS) {
+    dashboardLogs.pop();
+  }
+  // Also log to console
+  const logMethod = type === 'error' ? console.error : type === 'success' ? console.log : console.log;
+  logMethod(`[${new Date().toLocaleTimeString()}] ${message}`);
+}
+
+// Load sorted users from file on startup
+function loadSortedUsers() {
+  try {
+    if (fs.existsSync(SORTED_USERS_FILE)) {
+      const data = fs.readFileSync(SORTED_USERS_FILE, 'utf8');
+      const loaded = JSON.parse(data);
+      for (const [userId, house] of Object.entries(loaded)) {
+        sortedUsers.set(userId, house);
+      }
+      addDashboardLog(`📚 Loaded ${sortedUsers.size} sorted users from file`, 'info');
+    }
+  } catch (error) {
+    console.error('Error loading sorted users:', error);
+  }
+}
+
+// Save sorted users to file
+function saveSortedUsers() {
+  try {
+    const data = Object.fromEntries(sortedUsers);
+    fs.writeFileSync(SORTED_USERS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error('Error saving sorted users:', error);
+  }
+}
+
+// Helper function to find house role (for scanning - defined before houses object)
+function findHouseRoleForScan(guild, houseData) {
+  // First priority: Find role containing the emoji (most reliable for fancy Unicode versions)
+  let role = guild.roles.cache.find(r => r.name.includes(houseData.emoji));
+  if (role) return role;
+
+  // Second priority: Try exact match
+  role = guild.roles.cache.find(r => r.name === houseData.name);
+  if (role) return role;
+
+  // Third priority: Try to find role containing the house name (case-insensitive)
+  const houseNameLower = houseData.name.toLowerCase();
+  role = guild.roles.cache.find(r => {
+    const roleNameNormalized = r.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const houseNameNormalized = houseNameLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return roleNameNormalized.includes(houseNameNormalized);
+  });
+  if (role) return role;
+
+  return null;
+}
+
+// Scan guild for users with house roles and add them to sortedUsers
+async function scanGuildForSortedUsers(guild) {
+  try {
+    addDashboardLog(`🔍 Scanning ${guild.name} for users with house roles...`, 'info');
+    let foundCount = 0;
+
+    // Get all house roles in this guild
+    const houseRoles = [];
+    for (const [houseKey, houseData] of Object.entries(houses)) {
+      const role = findHouseRoleForScan(guild, houseData);
+      if (role) {
+        houseRoles.push({ role, house: houseKey, houseData });
+      }
+    }
+
+    if (houseRoles.length === 0) {
+      console.log(`   No house roles found in ${guild.name}`);
+      return 0;
+    }
+
+    // Fetch all members (this might take a moment for large servers)
+    await guild.members.fetch();
+    
+    // Check each member
+    for (const member of guild.members.cache.values()) {
+      if (member.user.bot) continue;
+
+      // Check if member has any house role
+      for (const { role, house } of houseRoles) {
+        if (member.roles.cache.has(role.id)) {
+          // Add to sortedUsers if not already there
+          if (!sortedUsers.has(member.user.id)) {
+            sortedUsers.set(member.user.id, house);
+            foundCount++;
+          }
+          break; // User can only have one house
+        }
+      }
+    }
+
+    if (foundCount > 0) {
+      addDashboardLog(`   ✅ Found ${foundCount} new sorted users in ${guild.name}`, 'success');
+      saveSortedUsers(); // Save after each guild scan
+    } else {
+      addDashboardLog(`   No new sorted users found in ${guild.name}`, 'info');
+    }
+
+    return foundCount;
+  } catch (error) {
+    console.error(`Error scanning ${guild.name}:`, error);
+    return 0;
+  }
+}
+
+// Scan all guilds on startup
+async function scanAllGuildsForSortedUsers() {
+  addDashboardLog('🔍 Starting scan of all guilds for users with house roles...', 'info');
+  let totalFound = 0;
+
+  for (const guild of client.guilds.cache.values()) {
+    const found = await scanGuildForSortedUsers(guild);
+    totalFound += found;
+    
+    // Small delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  addDashboardLog(`✅ Scan complete! Found ${totalFound} total sorted users across all servers.`, 'success');
+  addDashboardLog(`📊 Total sorted users in database: ${sortedUsers.size}`, 'info');
+}
 
 const houses = {
   GRYFFINDOR: {
@@ -82,13 +227,49 @@ const questions = [
   }
 ];
 
-client.on('ready', () => {
-  console.log(`✨ The Sorting Hat has awakened! Logged in as ${client.user.tag}`);
-  console.log(`🎩 Ready to sort students in ${client.guilds.cache.size} server(s)`);
+client.on('ready', async () => {
+  addDashboardLog(`✨ The Sorting Hat has awakened! Logged in as ${client.user.tag}`, 'success');
+  addDashboardLog(`🎩 Ready to sort students in ${client.guilds.cache.size} server(s)`, 'info');
+  
+  // Load previously sorted users from file
+  loadSortedUsers();
+  
+  // Scan all guilds for users who already have house roles
+  await scanAllGuildsForSortedUsers();
 });
 
 client.on('guildMemberAdd', async (member) => {
   if (member.user.bot) return;
+
+  // Auto-assign Muggles role to new members
+  try {
+    let mugglesRole = member.guild.roles.cache.find(r => r.name === 'Muggles');
+    
+    // Double-check prevents duplicate roles during concurrent joins
+    if (!mugglesRole) {
+      await member.guild.roles.fetch();
+      mugglesRole = member.guild.roles.cache.find(r => r.name === 'Muggles');
+      
+      if (!mugglesRole) {
+        mugglesRole = await member.guild.roles.create({
+          name: 'Muggles',
+          color: 0x808080,
+          reason: 'Auto-assigned role for unsorted members'
+        });
+        addDashboardLog(`Created Muggles role in ${member.guild.name}`, 'info');
+      }
+    }
+
+    if (!member.roles.cache.has(mugglesRole.id)) {
+      await member.roles.add(mugglesRole);
+      addDashboardLog(`Assigned Muggles role to ${member.user.tag} in ${member.guild.name}`, 'info');
+    }
+  } catch (error) {
+    console.error('Error assigning Muggles role:', error);
+    if (error.code === 50013) {
+      console.log('Bot lacks permission to manage roles. Ensure bot role is positioned higher than Muggles role.');
+    }
+  }
 
   const welcomeChannel = await findWelcomeChannel(member.guild);
   
@@ -97,13 +278,25 @@ client.on('guildMemberAdd', async (member) => {
     return;
   }
 
+  const sortingChannel = await findSortingChannel(member.guild);
+  
+  let sortingMessage;
+  if (sortingChannel && welcomeChannel.id === sortingChannel.id) {
+    sortingMessage = `🎩 You're in the sorting chamber! Type !sort or click below to begin your ceremony!`;
+  } else {
+    sortingMessage = `Type !sort (or click the Sorting Hat below 🧙‍♂️) to discover your true House and begin your magical adventure!`;
+    if (sortingChannel) {
+      sortingMessage += `\n\n🎩 Visit <#${sortingChannel.id}> to begin your sorting ceremony!`;
+    }
+  }
+
   const welcomeEmbed = new EmbedBuilder()
     .setColor(0x6B4423)
     .setTitle('🧙‍♂️ Welcome to Hogwarts School of Witchcraft and Wizardry!')
     .setDescription(
       `Greetings, young witch or wizard! You've just arrived at Hogwarts School of Witchcraft and Wizardry, a place where magic thrives and friendships are forged.\n\n` +
       `Before you begin your journey through the enchanted halls, step forward and meet the Sorting Hat — it shall decide whether your spirit belongs to Gryffindor, Ravenclaw, Hufflepuff, or Slytherin.\n\n` +
-      `Type !sort (or click the Sorting Hat below 🧙‍♂️) to discover your true House and begin your magical adventure!\n\n` +
+      `${sortingMessage}\n\n` +
       `✨ Wands at the ready, and may your House bring you honor!`
     )
     .setThumbnail(member.user.displayAvatarURL())
@@ -124,15 +317,15 @@ client.on('guildMemberAdd', async (member) => {
       embeds: [welcomeEmbed], 
       components: [row] 
     });
-    console.log(`Welcomed new member ${member.user.tag} to ${member.guild.name}`);
+    addDashboardLog(`Welcomed new member ${member.user.tag} to ${member.guild.name}`, 'info');
   } catch (error) {
     console.error('Error sending welcome message:', error);
   }
 });
 
 async function findWelcomeChannel(guild) {
-  const rolesChannel = guild.channels.cache.find(
-    channel => channel.name.toLowerCase() === 'roles' && 
+  const sortingChannel = guild.channels.cache.find(
+    channel => channel.name.toLowerCase() === '🎩┃choose-your-house'.toLowerCase() && 
     channel.isTextBased() &&
     channel.permissionsFor(guild.members.me).has([
       PermissionFlagsBits.SendMessages,
@@ -141,8 +334,8 @@ async function findWelcomeChannel(guild) {
     ])
   );
 
-  if (rolesChannel) {
-    return rolesChannel;
+  if (sortingChannel) {
+    return sortingChannel;
   }
 
   if (guild.systemChannel && 
@@ -165,6 +358,20 @@ async function findWelcomeChannel(guild) {
   return textChannels.first() || null;
 }
 
+async function findSortingChannel(guild) {
+  const sortingChannel = guild.channels.cache.find(
+    channel => channel.name.toLowerCase() === '🎩┃choose-your-house'.toLowerCase() && 
+    channel.isTextBased() &&
+    channel.permissionsFor(guild.members.me).has([
+      PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.EmbedLinks,
+      PermissionFlagsBits.ViewChannel
+    ])
+  );
+
+  return sortingChannel || null;
+}
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   
@@ -173,6 +380,16 @@ client.on('messageCreate', async (message) => {
       const house = sortedUsers.get(message.author.id);
       const houseData = houses[house];
       return message.reply(`You have already been sorted into **${houseData.emoji} ${houseData.name}**! The Sorting Hat's decision is final... for now.`);
+    }
+
+    const sortingChannel = await findSortingChannel(message.guild);
+    
+    if (!sortingChannel) {
+      return message.reply('⚠️ The Sorting Hat cannot find the designated sorting chamber! Please contact a server administrator.');
+    }
+
+    if (message.channel.id !== sortingChannel.id) {
+      return message.reply(`🎩 The Sorting Hat only speaks in <#${sortingChannel.id}>! Please go there to begin your ceremony.`);
     }
 
     const welcomeEmbed = new EmbedBuilder()
@@ -199,9 +416,36 @@ client.on('interactionCreate', async (interaction) => {
   const userId = interaction.user.id;
 
   if (interaction.customId === 'start_sorting') {
+    if (sortedUsers.has(userId)) {
+      const house = sortedUsers.get(userId);
+      const houseData = houses[house];
+      return interaction.reply({ content: `You have already been sorted into **${houseData.emoji} ${houseData.name}**! The Sorting Hat's decision is final... for now.`, ephemeral: true });
+    }
+
+    const sortingChannel = await findSortingChannel(interaction.guild);
+    
+    if (!sortingChannel) {
+      return interaction.reply({ content: '⚠️ The Sorting Hat cannot find its chamber! Please contact an administrator.', ephemeral: true });
+    }
+
+    if (interaction.channel.id !== sortingChannel.id) {
+      return interaction.reply({ content: `🎩 The Sorting Ceremony must be performed in <#${sortingChannel.id}>!`, ephemeral: true });
+    }
+
     userSessions.set(userId, { currentQuestion: 0, answers: [] });
     await askQuestion(interaction, userId);
   } else if (interaction.customId.startsWith('answer_')) {
+    const sortingChannel = await findSortingChannel(interaction.guild);
+    
+    if (!sortingChannel) {
+      return interaction.reply({ content: '⚠️ The Sorting Hat cannot find its chamber! Please contact an administrator.', ephemeral: true });
+    }
+
+    if (interaction.channel.id !== sortingChannel.id) {
+      userSessions.delete(userId);
+      return interaction.reply({ content: `⚠️ You must complete the sorting in <#${sortingChannel.id}>!`, ephemeral: true });
+    }
+
     const answerIndex = parseInt(interaction.customId.split('_')[1]);
     const session = userSessions.get(userId);
     
@@ -255,6 +499,29 @@ async function askQuestion(interaction, userId) {
   }
 }
 
+function findHouseRole(guild, houseData) {
+  // First priority: Find role containing the emoji (most reliable for fancy Unicode versions)
+  // This will find roles like "𝔖𝔩𝔶𝔱𝔥𝔢𝔯𝔦𝔫🐍" before plain "Slytherin"
+  let role = guild.roles.cache.find(r => r.name.includes(houseData.emoji));
+  if (role) return role;
+
+  // Second priority: Try exact match (for backwards compatibility with plain roles)
+  role = guild.roles.cache.find(r => r.name === houseData.name);
+  if (role) return role;
+
+  // Third priority: Try to find role containing the house name (case-insensitive, handles fancy Unicode)
+  const houseNameLower = houseData.name.toLowerCase();
+  role = guild.roles.cache.find(r => {
+    // Normalize both strings for comparison (handles Unicode variants)
+    const roleNameNormalized = r.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const houseNameNormalized = houseNameLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return roleNameNormalized.includes(houseNameNormalized);
+  });
+  if (role) return role;
+
+  return null;
+}
+
 async function revealHouse(interaction, userId, answers) {
   const houseCounts = {};
   answers.forEach(house => {
@@ -271,6 +538,7 @@ async function revealHouse(interaction, userId, answers) {
   }
 
   sortedUsers.set(userId, sortedHouse);
+  saveSortedUsers(); // Persist to file
   const houseData = houses[sortedHouse];
 
   const thinkingEmbed = new EmbedBuilder()
@@ -311,28 +579,51 @@ async function revealHouse(interaction, userId, answers) {
 
   await channel.send({ embeds: [publicEmbed] });
 
+  let houseRoleAssigned = false;
   try {
     const member = await interaction.guild.members.fetch(userId);
-    const roleName = houseData.name;
-    let role = interaction.guild.roles.cache.find(r => r.name === roleName);
+    let role = findHouseRole(interaction.guild, houseData);
 
     if (!role) {
+      // Only create if no matching role found
       role = await interaction.guild.roles.create({
-        name: roleName,
+        name: houseData.name,
         color: houseData.color,
         reason: 'Sorting Hat house role',
       });
-      console.log(`Created role: ${roleName}`);
+      addDashboardLog(`Created role: ${houseData.name}`, 'info');
+    } else {
+      addDashboardLog(`Found existing role: ${role.name}`, 'info');
     }
-
     if (member.roles.cache.has(role.id)) {
-      console.log(`User already has ${roleName} role`);
+      addDashboardLog(`User already has ${role.name} role`, 'info');
+      houseRoleAssigned = true;
     } else {
       await member.roles.add(role);
-      console.log(`Added ${roleName} role to ${interaction.user.tag}`);
+      addDashboardLog(`Added ${role.name} role to ${interaction.user.tag}`, 'success');
+      houseRoleAssigned = true;
+    }
+
+    // Remove Muggles role after successful house role assignment
+    // Iterate over all member roles to remove any "Muggles" role (handles duplicates)
+    const mugglesRoles = member.roles.cache.filter(r => r.name === 'Muggles');
+    
+    if (mugglesRoles.size === 0) {
+      addDashboardLog(`User ${interaction.user.tag} did not have Muggles role`, 'info');
+    } else {
+      for (const mugglesRole of mugglesRoles.values()) {
+        await member.roles.remove(mugglesRole);
+        addDashboardLog(`Removed Muggles role from ${interaction.user.tag}`, 'info');
+      }
     }
   } catch (error) {
-    console.error('Error assigning role:', error);
+    // Distinguish between house assignment and Muggles removal failures
+    // If house role was assigned successfully, error is likely from Muggles removal
+    if (houseRoleAssigned) {
+      console.error('[Muggles Removal] Error removing Muggles role:', error);
+    } else {
+      console.error('Error assigning role:', error);
+    }
     if (error.code === 50013) {
       console.log('Bot lacks permission to manage roles. Make sure the bot role is higher than house roles.');
     }
@@ -340,3 +631,298 @@ async function revealHouse(interaction, userId, answers) {
 }
 
 client.login(process.env.DISCORD_BOT_TOKEN);
+
+// Admin API Server
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.static('.')); // Serve static files (admin.html)
+
+const PORT = process.env.PORT || 3000;
+let botRestarting = false;
+
+// Status endpoint
+app.get('/status', (req, res) => {
+  res.json({
+    online: client.isReady(),
+    botTag: client.user ? client.user.tag : null,
+    serverCount: client.guilds.cache.size,
+    sortedUsers: sortedUsers.size,
+    activeSessions: userSessions.size,
+    uptime: client.uptime
+  });
+});
+
+// Get dashboard logs
+app.get('/logs', (req, res) => {
+  res.json({
+    success: true,
+    logs: dashboardLogs
+  });
+});
+
+// Get list of sorted users
+app.get('/sorted-users', async (req, res) => {
+  try {
+    const sortedUsersList = [];
+    
+    for (const [userId, house] of sortedUsers.entries()) {
+      try {
+        // Try to get user info from Discord
+        let userTag = userId;
+        let userName = 'Unknown User';
+        
+        // Try to find user in any guild
+        for (const guild of client.guilds.cache.values()) {
+          try {
+            const member = await guild.members.fetch(userId).catch(() => null);
+            if (member) {
+              userTag = member.user.tag;
+              userName = member.user.username;
+              break;
+            }
+          } catch (e) {
+            // Continue to next guild
+          }
+        }
+        
+        sortedUsersList.push({
+          userId,
+          userTag,
+          userName,
+          house,
+          houseName: houses[house]?.name || house,
+          houseEmoji: houses[house]?.emoji || ''
+        });
+      } catch (error) {
+        // If we can't fetch user, still include them with basic info
+        sortedUsersList.push({
+          userId,
+          userTag: userId,
+          userName: 'Unknown User',
+          house,
+          houseName: houses[house]?.name || house,
+          houseEmoji: houses[house]?.emoji || ''
+        });
+      }
+    }
+    
+    // Sort by house, then by username
+    sortedUsersList.sort((a, b) => {
+      if (a.house !== b.house) {
+        return a.house.localeCompare(b.house);
+      }
+      return a.userName.localeCompare(b.userName);
+    });
+    
+    res.json({
+      success: true,
+      total: sortedUsersList.length,
+      users: sortedUsersList
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Start bot endpoint (for future use - currently just returns status)
+app.post('/start', (req, res) => {
+  if (client.isReady()) {
+    return res.json({ success: true, message: 'Bot is already running' });
+  }
+  res.json({ success: false, error: 'Bot start must be done via process manager' });
+});
+
+// Stop bot endpoint
+app.post('/stop', (req, res) => {
+  if (!client.isReady()) {
+    return res.json({ success: false, error: 'Bot is not running' });
+  }
+  
+  client.destroy();
+  res.json({ success: true, message: 'Bot stopped' });
+  
+  // Exit process after a short delay
+  setTimeout(() => {
+    process.exit(0);
+  }, 1000);
+});
+
+// Restart bot endpoint
+app.post('/restart', (req, res) => {
+  if (botRestarting) {
+    return res.json({ success: false, error: 'Bot is already restarting' });
+  }
+  
+  botRestarting = true;
+  res.json({ success: true, message: 'Bot restarting...' });
+  
+  client.destroy().then(() => {
+    setTimeout(() => {
+      process.exit(1); // Exit with code 1 to trigger restart in process manager
+    }, 1000);
+  });
+});
+
+// Get guilds list
+app.get('/guilds', (req, res) => {
+  const guildsList = client.guilds.cache.map(guild => ({
+    id: guild.id,
+    name: guild.name,
+    memberCount: guild.memberCount
+  }));
+  res.json({
+    success: true,
+    guilds: guildsList
+  });
+});
+
+// Add house role to user
+app.post('/users/:userId/assign-house', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { house, guildId } = req.body;
+
+    if (!house || !guildId) {
+      return res.status(400).json({ success: false, error: 'House and guildId are required' });
+    }
+
+    if (!houses[house]) {
+      return res.status(400).json({ success: false, error: 'Invalid house' });
+    }
+
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      return res.status(404).json({ success: false, error: 'Guild not found' });
+    }
+
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) {
+      return res.status(404).json({ success: false, error: 'User not found in guild' });
+    }
+
+    const houseData = houses[house];
+    let role = findHouseRole(guild, houseData);
+
+    if (!role) {
+      // Create role if it doesn't exist
+      role = await guild.roles.create({
+        name: houseData.name,
+        color: houseData.color,
+        reason: 'Admin assigned house role'
+      });
+      addDashboardLog(`Created ${houseData.name} role in ${guild.name}`, 'info');
+    }
+
+    // Remove all other house roles first
+    for (const [houseKey, otherHouseData] of Object.entries(houses)) {
+      if (houseKey !== house) {
+        const otherRole = findHouseRole(guild, otherHouseData);
+        if (otherRole && member.roles.cache.has(otherRole.id)) {
+          await member.roles.remove(otherRole);
+          addDashboardLog(`Removed ${otherHouseData.name} role from ${member.user.tag}`, 'info');
+        }
+      }
+    }
+
+    // Add the new house role
+    if (!member.roles.cache.has(role.id)) {
+      await member.roles.add(role);
+      addDashboardLog(`Assigned ${houseData.name} role to ${member.user.tag}`, 'success');
+    }
+
+    // Update sortedUsers
+    sortedUsers.set(userId, house);
+    saveSortedUsers();
+
+    // Remove Muggles role if present
+    const mugglesRoles = member.roles.cache.filter(r => r.name === 'Muggles');
+    for (const mugglesRole of mugglesRoles.values()) {
+      await member.roles.remove(mugglesRole);
+    }
+
+    res.json({
+      success: true,
+      message: `Assigned ${houseData.name} role to ${member.user.tag}`
+    });
+  } catch (error) {
+    addDashboardLog(`Error assigning house role: ${error.message}`, 'error');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Remove house role from user
+app.post('/users/:userId/remove-house', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { guildId } = req.body;
+
+    if (!guildId) {
+      return res.status(400).json({ success: false, error: 'guildId is required' });
+    }
+
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      return res.status(404).json({ success: false, error: 'Guild not found' });
+    }
+
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) {
+      return res.status(404).json({ success: false, error: 'User not found in guild' });
+    }
+
+    // Remove all house roles
+    let removedCount = 0;
+    for (const [houseKey, houseData] of Object.entries(houses)) {
+      const role = findHouseRole(guild, houseData);
+      if (role && member.roles.cache.has(role.id)) {
+        await member.roles.remove(role);
+        removedCount++;
+        addDashboardLog(`Removed ${houseData.name} role from ${member.user.tag}`, 'info');
+      }
+    }
+
+    // Remove from sortedUsers
+    if (sortedUsers.has(userId)) {
+      sortedUsers.delete(userId);
+      saveSortedUsers();
+    }
+
+    // Re-add Muggles role
+    let mugglesRole = guild.roles.cache.find(r => r.name === 'Muggles');
+    if (!mugglesRole) {
+      mugglesRole = await guild.roles.create({
+        name: 'Muggles',
+        color: 0x808080,
+        reason: 'User removed from house'
+      });
+    }
+    if (!member.roles.cache.has(mugglesRole.id)) {
+      await member.roles.add(mugglesRole);
+    }
+
+    res.json({
+      success: true,
+      message: `Removed house role(s) from ${member.user.tag}`,
+      removedCount
+    });
+  } catch (error) {
+    addDashboardLog(`Error removing house role: ${error.message}`, 'error');
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Start API server
+app.listen(PORT, () => {
+  addDashboardLog(`🌐 Admin API server running on port ${PORT}`, 'success');
+  addDashboardLog(`📊 Dashboard: http://localhost:${PORT}/admin.html`, 'info');
+});

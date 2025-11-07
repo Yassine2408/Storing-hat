@@ -4,12 +4,21 @@
   "description": "A Discord bot that sorts users into Hogwarts houses",
   "main": "bot.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node bot.js",
+    "run": "node bot.js"
   },
-  "keywords": ["discord", "bot", "harry-potter", "sorting-hat"],
+  "keywords": [
+    "discord",
+    "bot",
+    "harry-potter",
+    "sorting-hat"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.14.1"
+    "cors": "^2.8.5",
+    "discord.js": "^14.14.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
   }
 }

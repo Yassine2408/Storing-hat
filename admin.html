@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎩 Sorting Hat Bot - Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.online {
+            background: #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+
+        .status-indicator.offline {
+            background: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #4ade80;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .log-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 15px;
+        }
+
+        .log-entry.error {
+            border-left-color: #f5576c;
+            color: #f5576c;
+        }
+
+        .log-entry.success {
+            border-left-color: #4ade80;
+            color: #4ade80;
+        }
+
+        .config-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .config-section h3 {
+            margin-bottom: 15px;
+            color: #4ade80;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 1em;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .note {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .note strong {
+            color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎩 Sorting Hat Bot</h1>
+            <p>Admin Control Panel</p>
+        </div>
+
+        <div class="status-card">
+            <h2>
+                <span class="status-indicator offline" id="statusIndicator"></span>
+                <span id="statusText">Checking status...</span>
+            </h2>
+            <p id="statusDetails" style="margin-top: 10px; opacity: 0.8;"></p>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn" onclick="startBot()">▶ Start Bot</button>
+            <button class="btn btn-danger" id="stopBtn" onclick="stopBot()">⏹ Stop Bot</button>
+            <button class="btn btn-primary" id="restartBtn" onclick="restartBot()">🔄 Restart Bot</button>
+            <button class="btn btn-primary" onclick="refreshStatus()">🔄 Refresh Status</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Servers</div>
+                <div class="stat-value" id="serverCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Sorted Users</div>
+                <div class="stat-value" id="sortedCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Active Sessions</div>
+                <div class="stat-value" id="sessionCount">-</div>
+            </div>
+        </div>
+
+        <div class="config-section">
+            <h3>⚙️ Bot Configuration</h3>
+            <div class="input-group">
+                <label>Bot API URL</label>
+                <input type="text" id="apiUrl" placeholder="http://localhost:3000" value="http://localhost:3000">
+            </div>
+            <button class="btn btn-primary" onclick="saveConfig()">💾 Save Configuration</button>
+        </div>
+
+        <div class="note">
+            <strong>⚠️ Important:</strong> This dashboard connects to your bot's API. Make sure your bot is running with the API server enabled. For hosting, deploy the bot to Railway, Render, or Replit (not Netlify - it doesn't support Node.js bots).
+        </div>
+
+        <div class="status-card">
+            <h3>👥 Sorted Users List</h3>
+            <div style="margin-bottom: 15px;">
+                <button class="btn btn-primary" onclick="loadSortedUsers()">🔄 Refresh List</button>
+                <span id="sortedUsersCount" style="margin-left: 15px; font-weight: bold;">Loading...</span>
+            </div>
+            <div id="sortedUsersContainer" style="max-height: 500px; overflow-y: auto;">
+                <div style="text-align: center; padding: 20px; opacity: 0.7;">Loading sorted users...</div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>📺 Terminal Logs</h3>
+            <div style="margin-bottom: 15px;">
+                <button class="btn btn-primary" onclick="loadLogs()">🔄 Refresh Logs</button>
+                <label style="margin-left: 15px;">
+                    <input type="checkbox" id="autoRefreshLogs" checked onchange="toggleAutoRefresh()">
+                    Auto-refresh (5s)
+                </label>
+            </div>
+            <div class="log-container" id="terminalLogsContainer">
+                <div class="log-entry">Loading logs...</div>
+            </div>
+        </div>
+
+        <div class="status-card">
+            <h3>📋 Activity Log</h3>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry">Waiting for bot connection...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let apiUrl = localStorage.getItem('apiUrl') || 'http://localhost:3000';
+        document.getElementById('apiUrl').value = apiUrl;
+
+        function saveConfig() {
+            apiUrl = document.getElementById('apiUrl').value;
+            localStorage.setItem('apiUrl', apiUrl);
+            addLog('Configuration saved!', 'success');
+            refreshStatus();
+        }
+
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+            
+            // Keep only last 50 entries
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        async function refreshStatus() {
+            try {
+                const response = await fetch(`${apiUrl}/status`);
+                const data = await response.json();
+                
+                updateStatus(data);
+                addLog('Status refreshed', 'success');
+            } catch (error) {
+                updateStatus({ online: false, error: 'Cannot connect to bot API' });
+                addLog('Failed to connect to bot API. Is the bot running?', 'error');
+            }
+        }
+
+        function updateStatus(data) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const statusDetails = document.getElementById('statusDetails');
+            
+            if (data.online) {
+                indicator.className = 'status-indicator online';
+                statusText.textContent = 'Bot is Online';
+                statusDetails.textContent = `Logged in as ${data.botTag || 'Unknown'} | ${data.serverCount || 0} server(s)`;
+                
+                document.getElementById('serverCount').textContent = data.serverCount || 0;
+                document.getElementById('sortedCount').textContent = data.sortedUsers || 0;
+                document.getElementById('sessionCount').textContent = data.activeSessions || 0;
+                
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+            } else {
+                indicator.className = 'status-indicator offline';
+                statusText.textContent = 'Bot is Offline';
+                statusDetails.textContent = data.error || 'Bot is not running';
+                
+                document.getElementById('serverCount').textContent = '-';
+                document.getElementById('sortedCount').textContent = '-';
+                document.getElementById('sessionCount').textContent = '-';
+                
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+            }
+        }
+
+        async function startBot() {
+            try {
+                addLog('Starting bot...', 'info');
+                const response = await fetch(`${apiUrl}/start`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLog('Bot started successfully!', 'success');
+                    setTimeout(refreshStatus, 2000);
+                } else {
+                    addLog(`Failed to start: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Error starting bot: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopBot() {
+            if (!confirm('Are you sure you want to stop the bot?')) return;
+            
+            try {
+                addLog('Stopping bot...', 'info');
+                const response = await fetch(`${apiUrl}/stop`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLog('Bot stopped successfully!', 'success');
+                    setTimeout(refreshStatus, 1000);
+                } else {
+                    addLog(`Failed to stop: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Error stopping bot: ${error.message}`, 'error');
+            }
+        }
+
+        async function restartBot() {
+            if (!confirm('Are you sure you want to restart the bot?')) return;
+            
+            try {
+                addLog('Restarting bot...', 'info');
+                const response = await fetch(`${apiUrl}/restart`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLog('Bot restarting...', 'success');
+                    setTimeout(refreshStatus, 3000);
+                } else {
+                    addLog(`Failed to restart: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Error restarting bot: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadSortedUsers() {
+            try {
+                addLog('Loading sorted users list...', 'info');
+                const response = await fetch(`${apiUrl}/sorted-users`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displaySortedUsers(data.users);
+                    document.getElementById('sortedUsersCount').textContent = `Total: ${data.total} users`;
+                    addLog(`Loaded ${data.total} sorted users`, 'success');
+                } else {
+                    addLog(`Failed to load users: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Error loading sorted users: ${error.message}`, 'error');
+                document.getElementById('sortedUsersContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 20px; color: #f5576c;">Failed to load users. Is the bot running?</div>';
+            }
+        }
+
+        function displaySortedUsers(users) {
+            const container = document.getElementById('sortedUsersContainer');
+            
+            if (users.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; opacity: 0.7;">No sorted users found.</div>';
+                return;
+            }
+
+            // Group by house
+            const groupedByHouse = {};
+            users.forEach(user => {
+                if (!groupedByHouse[user.house]) {
+                    groupedByHouse[user.house] = [];
+                }
+                groupedByHouse[user.house].push(user);
+            });
+
+            let html = '';
+            const houseOrder = ['GRYFFINDOR', 'HUFFLEPUFF', 'RAVENCLAW', 'SLYTHERIN'];
+            
+            houseOrder.forEach(houseKey => {
+                if (groupedByHouse[houseKey]) {
+                    const houseUsers = groupedByHouse[houseKey];
+                    const houseEmoji = houseUsers[0]?.houseEmoji || '';
+                    const houseName = houseUsers[0]?.houseName || houseKey;
+                    
+                    html += `
+                        <div style="margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px;">
+                            <h4 style="margin-bottom: 10px; color: #4ade80;">
+                                ${houseEmoji} ${houseName} (${houseUsers.length} ${houseUsers.length === 1 ? 'member' : 'members'})
+                            </h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
+                    `;
+                    
+                    houseUsers.forEach(user => {
+                        html += `
+                            <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; border-left: 3px solid #667eea; position: relative;">
+                                <div style="font-weight: bold; margin-bottom: 5px;">${user.userTag}</div>
+                                <div style="font-size: 0.85em; opacity: 0.7; margin-bottom: 10px;">ID: ${user.userId}</div>
+                                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                    <select id="guildSelect_${user.userId}" style="flex: 1; min-width: 150px; padding: 5px; border-radius: 5px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                                        <option value="">Select Server...</option>
+                                    </select>
+                                    <select id="houseSelect_${user.userId}" style="flex: 1; min-width: 120px; padding: 5px; border-radius: 5px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                                        <option value="GRYFFINDOR">🦁 Gryffindor</option>
+                                        <option value="HUFFLEPUFF">🦡 Hufflepuff</option>
+                                        <option value="RAVENCLAW">🦅 Ravenclaw</option>
+                                        <option value="SLYTHERIN">🐍 Slytherin</option>
+                                    </select>
+                                    <button class="btn btn-primary" style="padding: 5px 10px; font-size: 0.85em;" onclick="assignHouse('${user.userId}')">Assign</button>
+                                    <button class="btn btn-danger" style="padding: 5px 10px; font-size: 0.85em;" onclick="removeHouse('${user.userId}')">Remove</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            container.innerHTML = html;
+        }
+
+        let autoRefreshLogsInterval = null;
+        let guildsList = [];
+
+        async function loadGuilds() {
+            try {
+                const response = await fetch(`${apiUrl}/guilds`);
+                const data = await response.json();
+                if (data.success) {
+                    guildsList = data.guilds;
+                    // Populate guild selects
+                    document.querySelectorAll('[id^="guildSelect_"]').forEach(select => {
+                        select.innerHTML = '<option value="">Select Server...</option>';
+                        guildsList.forEach(guild => {
+                            const option = document.createElement('option');
+                            option.value = guild.id;
+                            option.textContent = `${guild.name} (${guild.memberCount} members)`;
+                            select.appendChild(option);
+                        });
+                    });
+                }
+            } catch (error) {
+                addLog(`Error loading guilds: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch(`${apiUrl}/logs`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLogs(data.logs);
+                }
+            } catch (error) {
+                addLog(`Error loading logs: ${error.message}`, 'error');
+            }
+        }
+
+        function displayLogs(logs) {
+            const container = document.getElementById('terminalLogsContainer');
+            container.innerHTML = '';
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="log-entry">No logs available</div>';
+                return;
+            }
+
+            logs.forEach(log => {
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${log.type}`;
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                entry.textContent = `[${time}] ${log.message}`;
+                container.appendChild(entry);
+            });
+        }
+
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefreshLogs');
+            if (checkbox.checked) {
+                autoRefreshLogsInterval = setInterval(loadLogs, 5000);
+            } else {
+                if (autoRefreshLogsInterval) {
+                    clearInterval(autoRefreshLogsInterval);
+                    autoRefreshLogsInterval = null;
+                }
+            }
+        }
+
+        async function assignHouse(userId) {
+            const guildSelect = document.getElementById(`guildSelect_${userId}`);
+            const houseSelect = document.getElementById(`houseSelect_${userId}`);
+            
+            const guildId = guildSelect.value;
+            const house = houseSelect.value;
+
+            if (!guildId) {
+                alert('Please select a server first!');
+                return;
+            }
+
+            if (!house) {
+                alert('Please select a house!');
+                return;
+            }
+
+            if (!confirm(`Assign ${houseSelect.options[houseSelect.selectedIndex].text} to this user?`)) {
+                return;
+            }
+
+            try {
+                addLog(`Assigning ${house} to user ${userId}...`, 'info');
+                const response = await fetch(`${apiUrl}/users/${userId}/assign-house`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ house, guildId })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    addLog(data.message, 'success');
+                    loadSortedUsers();
+                    loadLogs();
+                } else {
+                    addLog(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Error assigning house: ${error.message}`, 'error');
+            }
+        }
+
+        async function removeHouse(userId) {
+            const guildSelect = document.getElementById(`guildSelect_${userId}`);
+            const guildId = guildSelect.value;
+
+            if (!guildId) {
+                alert('Please select a server first!');
+                return;
+            }
+
+            if (!confirm('Remove house role from this user? They will be assigned the Muggles role.')) {
+                return;
+            }
+
+            try {
+                addLog(`Removing house role from user ${userId}...`, 'info');
+                const response = await fetch(`${apiUrl}/users/${userId}/remove-house`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ guildId })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    addLog(data.message, 'success');
+                    loadSortedUsers();
+                    loadLogs();
+                } else {
+                    addLog(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Error removing house: ${error.message}`, 'error');
+            }
+        }
+
+        // Update displaySortedUsers to populate guild selects
+        const originalDisplaySortedUsers = displaySortedUsers;
+        displaySortedUsers = function(users) {
+            originalDisplaySortedUsers(users);
+            loadGuilds();
+        };
+
+        // Auto-refresh every 5 seconds
+        setInterval(refreshStatus, 5000);
+        
+        // Initial status check
+        refreshStatus();
+        
+        // Load sorted users on page load
+        setTimeout(() => {
+            loadSortedUsers();
+            loadLogs();
+            loadGuilds();
+        }, 2000);
+
+        // Start auto-refresh for logs if enabled
+        if (document.getElementById('autoRefreshLogs').checked) {
+            toggleAutoRefresh();
+        }
+    </script>
+</body>
+</html>
+
