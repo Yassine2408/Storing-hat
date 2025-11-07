@@ -131,6 +131,20 @@ client.on('guildMemberAdd', async (member) => {
 });
 
 async function findWelcomeChannel(guild) {
+  const rolesChannel = guild.channels.cache.find(
+    channel => channel.name.toLowerCase() === 'roles' && 
+    channel.isTextBased() &&
+    channel.permissionsFor(guild.members.me).has([
+      PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.EmbedLinks,
+      PermissionFlagsBits.ViewChannel
+    ])
+  );
+
+  if (rolesChannel) {
+    return rolesChannel;
+  }
+
   if (guild.systemChannel && 
       guild.systemChannel.permissionsFor(guild.members.me).has([
         PermissionFlagsBits.SendMessages, 
