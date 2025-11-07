@@ -1,0 +1,40 @@
+🎩 DISCORD SORTING HAT BOT - QUICK START 🎩
+
+Your bot is ready! To get it running, you just need to enable one setting in Discord:
+
+IMPORTANT STEP - ENABLE MESSAGE CONTENT INTENT:
+=====================================================
+1. Go to: https://discord.com/developers/applications
+2. Select your bot application
+3. Click "Bot" in the left sidebar
+4. Scroll to "Privileged Gateway Intents"
+5. Toggle ON "Message Content Intent"
+6. Click "Save Changes"
+7. Come back here and restart the bot
+
+That's it! Once you enable that setting, your bot will work perfectly.
+
+HOW TO USE THE BOT:
+===================
+In any Discord channel where your bot has access:
+1. Type: !sort
+2. Click the "Begin Sorting" button
+3. Answer 4 private questions
+4. Get sorted into your Hogwarts house!
+
+NEED MORE HELP?
+===============
+See SETUP.md for detailed instructions including:
+- How to create a Discord bot
+- How to invite it to your server
+- Troubleshooting tips
+- Permission setup
+
+HOUSES:
+=======
+🦁 Gryffindor - Courage, Bravery, Determination
+🦡 Hufflepuff - Loyalty, Patience, Hard Work
+🦅 Ravenclaw - Intelligence, Wisdom, Creativity
+🐍 Slytherin - Ambition, Cunning, Leadership
+
+Enjoy your magical sorting experience! ✨
