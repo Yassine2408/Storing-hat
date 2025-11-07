@@ -4,6 +4,7 @@
 A Discord bot that sorts users into Hogwarts houses (Gryffindor, Hufflepuff, Ravenclaw, Slytherin) through an interactive questionnaire, mimicking the magical Sorting Hat ceremony from Harry Potter.
 
 ## Features
+- **Automatic Welcome**: New members are greeted with a custom welcome message and sorting invitation
 - **Interactive Sorting**: Users trigger the bot with `!sort` or `!sortinghat` command
 - **Private Questions**: 4 personality-based questions sent as ephemeral messages (visible only to the user being sorted)
 - **House Logic**: Answers are analyzed to determine the best house match based on traits:
@@ -29,10 +30,11 @@ A Discord bot that sorts users into Hogwarts houses (Gryffindor, Hufflepuff, Rav
 
 ## Setup Requirements
 1. **Discord Bot Token**: Stored in Replit Secrets as `DISCORD_BOT_TOKEN`
-2. **CRITICAL: Enable Message Content Intent** in Discord Developer Portal:
+2. **CRITICAL: Enable Required Intents** in Discord Developer Portal:
    - Go to Bot tab → Privileged Gateway Intents
-   - Toggle ON "Message Content Intent"
-   - Save changes (bot will fail without this!)
+   - Toggle ON "Message Content Intent" (REQUIRED)
+   - Toggle ON "Server Members Intent" (REQUIRED)
+   - Save changes (bot will fail without these!)
 3. **Bot Permissions**: 
    - Send Messages
    - Embed Links
@@ -43,7 +45,14 @@ A Discord bot that sorts users into Hogwarts houses (Gryffindor, Hufflepuff, Rav
 **See SETUP.md for detailed step-by-step instructions!**
 
 ## How It Works
-1. User types `!sort` in a Discord channel
+
+### Welcome Flow (New Members)
+1. New user joins the Discord server
+2. Bot automatically tags them and sends a magical welcome message
+3. User can click "Begin Sorting" button or type `!sort`
+
+### Sorting Flow
+1. User types `!sort` in a Discord channel or clicks button
 2. Bot sends a welcome message with a "Begin Sorting" button
 3. User clicks button and receives 4 private questions
 4. Each question has 4 options aligned with different house traits
@@ -53,6 +62,10 @@ A Discord bot that sorts users into Hogwarts houses (Gryffindor, Hufflepuff, Rav
 8. Bot automatically assigns the house role
 
 ## Recent Changes
+- **Added automatic welcome messages for new members** (Nov 7, 2025)
+  - New users are greeted with a magical welcome message
+  - Message includes Begin Sorting button for immediate sorting
+  - Requires Server Members Intent enabled
 - Initial project setup (Nov 7, 2025)
 - Implemented full sorting questionnaire with 4 questions
 - Added house role auto-assignment

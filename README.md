@@ -4,7 +4,8 @@ A magical Discord bot that sorts users into Hogwarts houses through an interacti
 
 ## ✨ Features
 
-- **Interactive Sorting Ceremony**: Users command the Sorting Hat with `!sort`
+- **Automatic Welcome Messages**: New members are greeted with a magical welcome message
+- **Interactive Sorting Ceremony**: Users command the Sorting Hat with `!sort` or click the button
 - **Private Questions**: 4 personality-based questions visible only to the user
 - **Smart House Selection**: Analyzes answers to match users with their perfect house
 - **Public Announcement**: Celebrates new house members with themed embeds
@@ -30,7 +31,7 @@ A magical Discord bot that sorts users into Hogwarts houses through an interacti
 
 The key steps are:
 1. Create a bot in Discord Developer Portal
-2. **Enable Message Content Intent** (critical!)
+2. **Enable Message Content Intent & Server Members Intent** (both required!)
 3. Get your bot token and add it to Replit Secrets
 4. Invite the bot to your server
 5. Run the bot on Replit

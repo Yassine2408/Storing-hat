@@ -19,14 +19,16 @@ You need to create and configure a Discord bot in the Discord Developer Portal.
 ### 3. Enable Required Intents (IMPORTANT!)
 Still in the **"Bot"** tab, scroll down to **"Privileged Gateway Intents"**:
 
-**Enable these three intents:**
+**Enable these intents:**
 - ✅ **Presence Intent** (optional)
-- ✅ **Server Members Intent** (optional)
-- ✅ **Message Content Intent** (REQUIRED)
+- ✅ **Server Members Intent** (REQUIRED - for welcoming new members)
+- ✅ **Message Content Intent** (REQUIRED - for reading commands)
 
 **Click "Save Changes"**
 
-> **Note**: Without Message Content Intent enabled, the bot cannot read messages and the `!sort` command won't work!
+> **Important Notes**: 
+> - Without **Message Content Intent** enabled, the bot cannot read messages and the `!sort` command won't work!
+> - Without **Server Members Intent** enabled, the bot cannot welcome new members when they join your server!
 
 ### 4. Set Bot Permissions
 1. Go to the **"OAuth2"** → **"URL Generator"** tab

@@ -5,6 +5,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
   ],
 });
 
@@ -85,6 +86,70 @@ client.on('ready', () => {
   console.log(`✨ The Sorting Hat has awakened! Logged in as ${client.user.tag}`);
   console.log(`🎩 Ready to sort students in ${client.guilds.cache.size} server(s)`);
 });
+
+client.on('guildMemberAdd', async (member) => {
+  if (member.user.bot) return;
+
+  const welcomeChannel = await findWelcomeChannel(member.guild);
+  
+  if (!welcomeChannel) {
+    console.log(`No suitable welcome channel found in ${member.guild.name}`);
+    return;
+  }
+
+  const welcomeEmbed = new EmbedBuilder()
+    .setColor(0x6B4423)
+    .setTitle('🧙‍♂️ Welcome to Hogwarts School of Witchcraft and Wizardry!')
+    .setDescription(
+      `Greetings, young witch or wizard! You've just arrived at Hogwarts School of Witchcraft and Wizardry, a place where magic thrives and friendships are forged.\n\n` +
+      `Before you begin your journey through the enchanted halls, step forward and meet the Sorting Hat — it shall decide whether your spirit belongs to Gryffindor, Ravenclaw, Hufflepuff, or Slytherin.\n\n` +
+      `Type !sort (or click the Sorting Hat below 🧙‍♂️) to discover your true House and begin your magical adventure!\n\n` +
+      `✨ Wands at the ready, and may your House bring you honor!`
+    )
+    .setThumbnail(member.user.displayAvatarURL())
+    .setFooter({ text: 'The Sorting Hat awaits...' })
+    .setTimestamp();
+
+  const startButton = new ButtonBuilder()
+    .setCustomId('start_sorting')
+    .setLabel('Begin Sorting')
+    .setStyle(ButtonStyle.Primary)
+    .setEmoji('🎩');
+
+  const row = new ActionRowBuilder().addComponents(startButton);
+
+  try {
+    await welcomeChannel.send({ 
+      content: `${member}`, 
+      embeds: [welcomeEmbed], 
+      components: [row] 
+    });
+    console.log(`Welcomed new member ${member.user.tag} to ${member.guild.name}`);
+  } catch (error) {
+    console.error('Error sending welcome message:', error);
+  }
+});
+
+async function findWelcomeChannel(guild) {
+  if (guild.systemChannel && 
+      guild.systemChannel.permissionsFor(guild.members.me).has([
+        PermissionFlagsBits.SendMessages, 
+        PermissionFlagsBits.EmbedLinks
+      ])) {
+    return guild.systemChannel;
+  }
+
+  const textChannels = guild.channels.cache.filter(
+    channel => channel.isTextBased() && 
+    channel.permissionsFor(guild.members.me).has([
+      PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.EmbedLinks,
+      PermissionFlagsBits.ViewChannel
+    ])
+  );
+
+  return textChannels.first() || null;
+}
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
