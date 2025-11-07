@@ -1,0 +1,15 @@
+{
+  "name": "sorting-hat-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot that sorts users into Hogwarts houses",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "keywords": ["discord", "bot", "harry-potter", "sorting-hat"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.14.1"
+  }
+}
