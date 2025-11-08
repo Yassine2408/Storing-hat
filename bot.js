@@ -1,7 +1,13 @@
+  // Immediate startup log
+console.log('🚀 Bot starting...');
+console.log('📦 Loading dependencies...');
+
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const express = require('express');
 const cors = require('cors');
+
+console.log('✅ Dependencies loaded');
 
 const client = new Client({
   intents: [
@@ -630,7 +636,16 @@ async function revealHouse(interaction, userId, answers) {
   }
 }
 
-client.login(process.env.DISCORD_BOT_TOKEN);
+console.log('🔐 Attempting to login to Discord...');
+if (!process.env.DISCORD_BOT_TOKEN) {
+  console.error('❌ ERROR: DISCORD_BOT_TOKEN is not set!');
+  console.error('Please set DISCORD_BOT_TOKEN in your environment variables.');
+  process.exit(1);
+}
+client.login(process.env.DISCORD_BOT_TOKEN).catch(error => {
+  console.error('❌ Discord login failed:', error.message);
+  process.exit(1);
+});
 
 // Admin API Server
 const app = express();
